@@ -28,7 +28,7 @@ A professional-grade command-line tool for password generation, strength analysi
 
 ### 1. Clone the repository
 
-```bash
+bash
 git clone https://github.com/MagnusArcher/ciphervault.git
 cd ciphervault
 2. Install dependencies
@@ -210,3 +210,4 @@ This tool is for educational and personal use. Always follow best practices for 
 Secure your data with CipherVault 🔐
 
 </div> ```
+
