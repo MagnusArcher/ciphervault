@@ -5,6 +5,7 @@ from modules.password_gen import generate_password
 from modules.password_check import check_password_strength
 from modules.encryptor import encrypt_text
 from modules.decryptor import decrypt_text
+from modules.clipboard_utils import ask_copy
 
 
 def print_banner():
@@ -32,7 +33,6 @@ def get_choice():
 
 
 def get_input(prompt):
-    """Safe input handling with KeyboardInterrupt support."""
     try:
         return input(prompt)
     except (KeyboardInterrupt, EOFError):
@@ -87,6 +87,8 @@ def handle_password_generation():
         strength = check_password_strength(password)
         print(f"🔒 Strength: {strength['level']}")
         
+        ask_copy(password, "password")
+        
     except ValueError:
         print("❌ Error: Invalid input")
 
@@ -138,7 +140,12 @@ def handle_encryption():
         print("❌ Error: Text cannot be empty")
         return
     
-    use_random_input = get_input("Use random key? (y/n): ")
+    print("\n📝 Original text:")
+    print(f"   {text}")
+    
+    ask_copy(text, "original text")
+    
+    use_random_input = get_input("\nUse random key? (y/n): ")
     if use_random_input is None:
         return
     use_random = use_random_input.lower() == 'y'
@@ -157,10 +164,17 @@ def handle_encryption():
         result = encrypt_text(text, key)
         
         print("\n✅ Encryption successful!\n")
+        
         print("🔑 Key (save this!):")
-        print(f"   {result['key']}\n")
-        print("📦 Encrypted text:")
-        print(f"   {result['encrypted']}\n")
+        print(f"   {result['key']}")
+        
+        ask_copy(result['key'], "encryption key")
+        
+        print("\n📦 Encrypted text:")
+        print(f"   {result['encrypted']}")
+        
+        ask_copy(result['encrypted'], "encrypted text")
+        
     except Exception as e:
         print(f"❌ Error: {str(e)}")
 
@@ -186,8 +200,11 @@ def handle_decryption():
     
     if result['success']:
         print("\n✅ Decryption successful!\n")
+        
         print("📄 Original text:")
-        print(f"   {result['decrypted']}\n")
+        print(f"   {result['decrypted']}")
+        
+        ask_copy(result['decrypted'], "decrypted text")
     else:
         print(f"\n❌ Decryption failed: {result['error']}\n")
 
