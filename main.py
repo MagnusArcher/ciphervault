@@ -26,9 +26,18 @@ def get_choice():
     try:
         choice = input("Choose an option (1-5): ").strip()
         return choice
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):
         print("\n\nExiting...")
         sys.exit(0)
+
+
+def get_input(prompt):
+    """Safe input handling with KeyboardInterrupt support."""
+    try:
+        return input(prompt)
+    except (KeyboardInterrupt, EOFError):
+        print("\n\nCancelled.")
+        return None
 
 
 def handle_password_generation():
@@ -37,15 +46,34 @@ def handle_password_generation():
     print("━"*40 + "\n")
     
     try:
-        length = int(input("Password length (8-64): "))
+        length_input = get_input("Password length (8-64): ")
+        if length_input is None:
+            return
+        
+        length = int(length_input)
         if length < 8 or length > 64:
             print("❌ Error: Length must be between 8 and 64")
             return
         
-        use_lower = input("Include lowercase letters? (y/n): ").lower() == 'y'
-        use_upper = input("Include uppercase letters? (y/n): ").lower() == 'y'
-        use_digits = input("Include digits? (y/n): ").lower() == 'y'
-        use_symbols = input("Include symbols? (y/n): ").lower() == 'y'
+        use_lower_input = get_input("Include lowercase letters? (y/n): ")
+        if use_lower_input is None:
+            return
+        use_lower = use_lower_input.lower() == 'y'
+        
+        use_upper_input = get_input("Include uppercase letters? (y/n): ")
+        if use_upper_input is None:
+            return
+        use_upper = use_upper_input.lower() == 'y'
+        
+        use_digits_input = get_input("Include digits? (y/n): ")
+        if use_digits_input is None:
+            return
+        use_digits = use_digits_input.lower() == 'y'
+        
+        use_symbols_input = get_input("Include symbols? (y/n): ")
+        if use_symbols_input is None:
+            return
+        use_symbols = use_symbols_input.lower() == 'y'
         
         if not (use_lower or use_upper or use_digits or use_symbols):
             print("❌ Error: At least one character type must be selected")
@@ -61,8 +89,6 @@ def handle_password_generation():
         
     except ValueError:
         print("❌ Error: Invalid input")
-    except KeyboardInterrupt:
-        print("\n\nCancelled.")
 
 
 def handle_password_check():
@@ -70,35 +96,33 @@ def handle_password_check():
     print("🔍 Password Strength Checker")
     print("━"*40 + "\n")
     
-    try:
-        password = input("Enter password to check: ")
-        
-        if not password:
-            print("❌ Error: Password cannot be empty")
-            return
-        
-        result = check_password_strength(password)
-        
-        print("\n" + "━"*40)
-        print("📊 Password Strength Analysis")
-        print("━"*40)
-        print(f"Length: {result['length']} characters")
-        print(f"Lowercase: {'✓' if result['has_lower'] else '✗'}")
-        print(f"Uppercase: {'✓' if result['has_upper'] else '✗'}")
-        print(f"Digits: {'✓' if result['has_digit'] else '✗'}")
-        print(f"Symbols: {'✓' if result['has_symbol'] else '✗'}")
-        print(f"Entropy: ~{result['entropy']:.0f} bits")
-        print(f"\nOverall Strength: {result['level']}")
-        
-        if result['suggestions']:
-            print("\n💡 Suggestions:")
-            for suggestion in result['suggestions']:
-                print(f"  - {suggestion}")
-        
-        print("━"*40)
-        
-    except KeyboardInterrupt:
-        print("\n\nCancelled.")
+    password = get_input("Enter password to check: ")
+    if password is None:
+        return
+    
+    if not password:
+        print("❌ Error: Password cannot be empty")
+        return
+    
+    result = check_password_strength(password)
+    
+    print("\n" + "━"*40)
+    print("📊 Password Strength Analysis")
+    print("━"*40)
+    print(f"Length: {result['length']} characters")
+    print(f"Lowercase: {'✓' if result['has_lower'] else '✗'}")
+    print(f"Uppercase: {'✓' if result['has_upper'] else '✗'}")
+    print(f"Digits: {'✓' if result['has_digit'] else '✗'}")
+    print(f"Symbols: {'✓' if result['has_symbol'] else '✗'}")
+    print(f"Entropy: ~{result['entropy']:.0f} bits")
+    print(f"\nOverall Strength: {result['level']}")
+    
+    if result['suggestions']:
+        print("\n💡 Suggestions:")
+        for suggestion in result['suggestions']:
+            print(f"  - {suggestion}")
+    
+    print("━"*40)
 
 
 def handle_encryption():
@@ -106,23 +130,30 @@ def handle_encryption():
     print("🔒 Text Encryption")
     print("━"*40 + "\n")
     
-    try:
-        text = input("Enter text to encrypt: ")
-        
-        if not text:
-            print("❌ Error: Text cannot be empty")
+    text = get_input("Enter text to encrypt: ")
+    if text is None:
+        return
+    
+    if not text:
+        print("❌ Error: Text cannot be empty")
+        return
+    
+    use_random_input = get_input("Use random key? (y/n): ")
+    if use_random_input is None:
+        return
+    use_random = use_random_input.lower() == 'y'
+    
+    if use_random:
+        key = None
+    else:
+        key = get_input("Enter encryption key (min 8 characters): ")
+        if key is None:
             return
-        
-        use_random = input("Use random key? (y/n): ").lower() == 'y'
-        
-        if use_random:
-            key = None
-        else:
-            key = input("Enter encryption key (min 8 characters): ")
-            if len(key) < 8:
-                print("❌ Error: Key must be at least 8 characters")
-                return
-        
+        if len(key) < 8:
+            print("❌ Error: Key must be at least 8 characters")
+            return
+    
+    try:
         result = encrypt_text(text, key)
         
         print("\n✅ Encryption successful!\n")
@@ -130,11 +161,8 @@ def handle_encryption():
         print(f"   {result['key']}\n")
         print("📦 Encrypted text:")
         print(f"   {result['encrypted']}\n")
-        
     except Exception as e:
         print(f"❌ Error: {str(e)}")
-    except KeyboardInterrupt:
-        print("\n\nCancelled.")
 
 
 def handle_decryption():
@@ -142,25 +170,26 @@ def handle_decryption():
     print("🔓 Text Decryption")
     print("━"*40 + "\n")
     
-    try:
-        encrypted = input("Enter encrypted text: ")
-        key = input("Enter decryption key: ")
-        
-        if not encrypted or not key:
-            print("❌ Error: Both encrypted text and key are required")
-            return
-        
-        result = decrypt_text(encrypted, key)
-        
-        if result['success']:
-            print("\n✅ Decryption successful!\n")
-            print("📄 Original text:")
-            print(f"   {result['decrypted']}\n")
-        else:
-            print(f"\n❌ Decryption failed: {result['error']}\n")
-        
-    except KeyboardInterrupt:
-        print("\n\nCancelled.")
+    encrypted = get_input("Enter encrypted text: ")
+    if encrypted is None:
+        return
+    
+    key = get_input("Enter decryption key: ")
+    if key is None:
+        return
+    
+    if not encrypted or not key:
+        print("❌ Error: Both encrypted text and key are required")
+        return
+    
+    result = decrypt_text(encrypted, key)
+    
+    if result['success']:
+        print("\n✅ Decryption successful!\n")
+        print("📄 Original text:")
+        print(f"   {result['decrypted']}\n")
+    else:
+        print(f"\n❌ Decryption failed: {result['error']}\n")
 
 
 def main():
@@ -188,6 +217,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):
         print("\n\n👋 Goodbye!\n")
         sys.exit(0)
