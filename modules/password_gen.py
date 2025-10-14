@@ -80,4 +80,3 @@ def _ensure_character_diversity(password, char_pool, use_lower, use_upper, use_d
         password_list[pos] = secrets.choice("!@#$%^&*()_+-=[]{}|;:,.<>?")
     
     return ''.join(password_list)
-    
