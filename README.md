@@ -302,4 +302,3 @@ This tool is for educational and personal use. Always follow best practices for 
 *Secure your data with CipherVault* 🔐
 
 </div>
-```
