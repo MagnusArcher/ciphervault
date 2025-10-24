@@ -1,26 +1,7 @@
 import math
 import string
 
-
 def check_password_strength(password):
-    """
-    Analyze password strength and provide detailed feedback.
-    
-    Args:
-        password (str): Password to check
-    
-    Returns:
-        dict: Analysis results including:
-            - length (int)
-            - has_lower (bool)
-            - has_upper (bool)
-            - has_digit (bool)
-            - has_symbol (bool)
-            - entropy (float)
-            - level (str): Weak, Medium, Strong, Very Strong
-            - suggestions (list)
-    """
-    
     result = {
         'length': len(password),
         'has_lower': any(c.islower() for c in password),
@@ -44,15 +25,6 @@ def check_password_strength(password):
 
 
 def _calculate_pool_size(result):
-    """
-    Calculate character pool size based on password composition.
-    
-    Args:
-        result (dict): Password analysis result
-    
-    Returns:
-        int: Character pool size
-    """
     pool_size = 0
     
     if result['has_lower']:
@@ -68,18 +40,6 @@ def _calculate_pool_size(result):
 
 
 def _calculate_entropy(length, pool_size):
-    """
-    Calculate password entropy in bits.
-    
-    Formula: entropy = log2(pool_size ^ length)
-    
-    Args:
-        length (int): Password length
-        pool_size (int): Character pool size
-    
-    Returns:
-        float: Entropy in bits
-    """
     if pool_size == 0:
         return 0.0
     
@@ -87,15 +47,6 @@ def _calculate_entropy(length, pool_size):
 
 
 def _calculate_score(result):
-    """
-    Calculate overall password score (0-100).
-    
-    Args:
-        result (dict): Password analysis result
-    
-    Returns:
-        int: Score (0-100)
-    """
     score = 0
     
     if result['length'] >= 8:
@@ -127,15 +78,6 @@ def _calculate_score(result):
 
 
 def _get_strength_level(score):
-    """
-    Convert score to strength level.
-    
-    Args:
-        score (int): Password score
-    
-    Returns:
-        str: Strength level
-    """
     if score >= 80:
         return "Very Strong"
     elif score >= 60:
@@ -147,15 +89,6 @@ def _get_strength_level(score):
 
 
 def _generate_suggestions(result):
-    """
-    Generate improvement suggestions based on analysis.
-    
-    Args:
-        result (dict): Password analysis result
-    
-    Returns:
-        list: List of suggestions
-    """
     suggestions = []
     
     if result['length'] < 12:
