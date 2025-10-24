@@ -6,20 +6,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
 def encrypt_text(plaintext, key=None):
-    """
-    Encrypt text using AES-256-GCM.
-    
-    Args:
-        plaintext (str): Text to encrypt
-        key (str, optional): Encryption key (min 8 chars). If None, generates random key.
-    
-    Returns:
-        dict: Contains 'key' and 'encrypted' (base64 encoded)
-    
-    Raises:
-        ValueError: If key is too short
-    """
-    
     if key is None:
         key = _generate_random_key()
     else:
@@ -47,31 +33,12 @@ def encrypt_text(plaintext, key=None):
 
 
 def _generate_random_key(length=16):
-    """
-    Generate a random encryption key.
-    
-    Args:
-        length (int): Key length
-    
-    Returns:
-        str: Random key
-    """
     import string
     chars = string.ascii_letters + string.digits
     return ''.join(secrets.choice(chars) for _ in range(length))
 
 
 def _derive_key(password, salt):
-    """
-    Derive encryption key from password using PBKDF2.
-    
-    Args:
-        password (str): User password
-        salt (bytes): Salt (16 bytes)
-    
-    Returns:
-        bytes: 32-byte derived key
-    """
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
