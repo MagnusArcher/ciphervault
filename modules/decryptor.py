@@ -5,17 +5,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
 def decrypt_text(encrypted_base64, key):
-    """
-    Decrypt text encrypted with AES-256-GCM.
-    
-    Args:
-        encrypted_base64 (str): Base64 encoded encrypted data
-        key (str): Decryption key
-    
-    Returns:
-        dict: Contains 'success' (bool), 'decrypted' (str) or 'error' (str)
-    """
-    
     try:
         encrypted_data = base64.b64decode(encrypted_base64)
         
@@ -43,16 +32,6 @@ def decrypt_text(encrypted_base64, key):
 
 
 def _derive_key(password, salt):
-    """
-    Derive encryption key from password using PBKDF2.
-    
-    Args:
-        password (str): User password
-        salt (bytes): Salt (16 bytes)
-    
-    Returns:
-        bytes: 32-byte derived key
-    """
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
