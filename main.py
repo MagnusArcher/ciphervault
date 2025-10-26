@@ -63,7 +63,7 @@ def show_banner():
         title + "\n" + subtitle,
         border_style="blue",
         padding=(1, 2),
-        title="[bold yellow]v1.3[/bold yellow]",
+        title="[bold yellow]v1.1[/bold yellow]",
         subtitle="[dim]GPLv3 Licensed • Advanced Crypto Options[/dim]"
     ))
 
@@ -110,12 +110,11 @@ def configuration_menu():
     kdf_choice = prompt("KDF (1=PBKDF2, 2=Argon2) [1]: ", default="1")
     CONFIG['kdf'] = "Argon2" if kdf_choice == "2" else "PBKDF2"
     
-    if CONFIG['kdf'] == "PBKDF2":
-        hash_choice = prompt("Hash (1=SHA256, 2=SHA512) [1]: ", default="1")
-        CONFIG['hash'] = "SHA512" if hash_choice == "2" else "SHA256"
+    hash_choice = prompt("Hash (1=SHA256, 2=SHA512) [1]: ", default="1")
+    CONFIG['hash'] = "SHA512" if hash_choice == "2" else "SHA256"
     
     save_config(CONFIG)
-    console.print("[green][SUCCESS] Configuration updated![/green]")
+    console.print("[SUCCESS] Configuration updated!")
     prompt("\n➤ Press Enter to return...")
 
 def generate_password_flow(length=16, use_lower=True, use_upper=True, use_digits=True, use_symbols=True, json_output=False):
@@ -147,9 +146,9 @@ def generate_password_flow(length=16, use_lower=True, use_upper=True, use_digits
         if not json_output:
             if prompt("\n➤ Copy password to clipboard? (y/n): ", default="y").lower().startswith('y'):
                 if copy_to_clipboard(password):
-                    console.print("[green][SUCCESS] Password copied to clipboard![/green]")
+                    console.print("[SUCCESS] Password copied to clipboard!")
                 else:
-                    console.print("[red][ERROR] Failed to copy to clipboard.[/red]")
+                    console.print("[ERROR] Failed to copy to clipboard.")
             if strength['suggestions']:
                 console.print("\n[bold yellow]Suggestions for Improvement:[/bold yellow]")
                 for s in strength['suggestions']:
@@ -158,7 +157,7 @@ def generate_password_flow(length=16, use_lower=True, use_upper=True, use_digits
         if json_output:
             print(json.dumps({'error': str(e)}, indent=2))
         else:
-            console.print(f"[red][ERROR] {str(e)}[/red]")
+            console.print(f"[ERROR] {str(e)}")
 
 def check_password_flow(password=None, json_output=False):
     try:
@@ -195,7 +194,7 @@ def check_password_flow(password=None, json_output=False):
         if json_output:
             print(json.dumps({'error': str(e)}, indent=2))
         else:
-            console.print(f"[red][ERROR] {str(e)}[/red]")
+            console.print(f"[ERROR] {str(e)}")
 
 def encrypt_text_flow(plaintext=None, key=None, use_random=True, json_output=False):
     try:
@@ -225,24 +224,24 @@ def encrypt_text_flow(plaintext=None, key=None, use_random=True, json_output=Fal
         if result['kdf'] == 'PBKDF2':
             result_table.add_row("Hash", result['hash'])
         console.print(Panel(result_table, title="[SUCCESS] Encryption Successful", border_style="magenta", padding=(1, 2)))
-        console.print("[red]⚠ Save this key! You'll need it for decryption![/red]")
+        console.print("[WARNING] Save this key! You'll need it for decryption!")
         
         if not json_output:
             if prompt("\n➤ Copy key to clipboard? (y/n): ", default="y").lower().startswith('y'):
                 if copy_to_clipboard(result['key']):
-                    console.print("[green][SUCCESS] Key copied to clipboard![/green]")
+                    console.print("[SUCCESS] Key copied to clipboard!")
                 else:
-                    console.print("[red][ERROR] Failed to copy key.[/red]")
+                    console.print("[ERROR] Failed to copy key.")
             if prompt("➤ Copy encrypted text to clipboard? (y/n): ", default="y").lower().startswith('y'):
                 if copy_to_clipboard(result['encrypted']):
-                    console.print("[green][SUCCESS] Encrypted text copied to clipboard![/green]")
+                    console.print("[SUCCESS] Encrypted text copied to clipboard!")
                 else:
-                    console.print("[red][ERROR] Failed to copy encrypted text.[/red]")
+                    console.print("[ERROR] Failed to copy encrypted text.")
     except Exception as e:
         if json_output:
             print(json.dumps({'error': str(e)}, indent=2))
         else:
-            console.print(f"[red][ERROR] {str(e)}[/red]")
+            console.print(f"[ERROR] {str(e)}")
 
 def decrypt_text_flow(encrypted=None, key=None, json_output=False):
     try:
@@ -265,16 +264,16 @@ def decrypt_text_flow(encrypted=None, key=None, json_output=False):
             if not json_output:
                 if prompt("\n➤ Copy decrypted text to clipboard? (y/n): ", default="y").lower().startswith('y'):
                     if copy_to_clipboard(result['decrypted']):
-                        console.print("[green][SUCCESS] Decrypted text copied to clipboard![/green]")
+                        console.print("[SUCCESS] Decrypted text copied to clipboard!")
                     else:
-                        console.print("[red][ERROR] Failed to copy decrypted text.[/red]")
+                        console.print("[ERROR] Failed to copy decrypted text.")
         else:
-            console.print(f"[red][Decryption Failed] {result['error']}[/red]")
+            console.print(f"[ERROR] Decryption Failed: {result['error']}")
     except Exception as e:
         if json_output:
             print(json.dumps({'error': str(e)}, indent=2))
         else:
-            console.print(f"[red][ERROR] {str(e)}[/red]")
+            console.print(f"[ERROR] {str(e)}")
 
 def encrypt_file_flow(input_path=None, output_path=None, key=None, use_random=True, json_output=False):
     try:
@@ -306,19 +305,19 @@ def encrypt_file_flow(input_path=None, output_path=None, key=None, use_random=Tr
         if result['kdf'] == 'PBKDF2':
             result_table.add_row("Hash", result['hash'])
         console.print(Panel(result_table, title="[SUCCESS] File Encrypted", border_style="magenta", padding=(1, 2)))
-        console.print("[red]⚠ Save this key! You'll need it for decryption![/red]")
+        console.print("[WARNING] Save this key! You'll need it for decryption!")
         
         if not json_output:
             if prompt("\n➤ Copy key to clipboard? (y/n): ", default="y").lower().startswith('y'):
                 if copy_to_clipboard(result['key']):
-                    console.print("[green][SUCCESS] Key copied to clipboard![/green]")
+                    console.print("[SUCCESS] Key copied to clipboard!")
                 else:
-                    console.print("[red][ERROR] Failed to copy key.[/red]")
+                    console.print("[ERROR] Failed to copy key.")
     except Exception as e:
         if json_output:
             print(json.dumps({'error': str(e)}, indent=2))
         else:
-            console.print(f"[red][ERROR] {str(e)}[/red]")
+            console.print(f"[ERROR] {str(e)}")
 
 def decrypt_file_flow(input_path=None, output_path=None, key=None, json_output=False):
     try:
@@ -336,15 +335,15 @@ def decrypt_file_flow(input_path=None, output_path=None, key=None, json_output=F
             return
         
         if result['success']:
-            console.print("[green][SUCCESS] File decrypted successfully![/green]")
+            console.print("[SUCCESS] File decrypted successfully!")
             console.print(f"Output saved to: [bold]{output_path}[/bold]")
         else:
-            console.print(f"[red][Decryption Failed] {result['error']}[/red]")
+            console.print(f"[ERROR] Decryption Failed: {result['error']}")
     except Exception as e:
         if json_output:
             print(json.dumps({'error': str(e)}, indent=2))
         else:
-            console.print(f"[red][ERROR] {str(e)}[/red]")
+            console.print(f"[ERROR] {str(e)}")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="CipherVault: Secure Text & Password Toolkit")
