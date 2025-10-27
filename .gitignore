@@ -19,3 +19,4 @@ build/
 Thumbs.db
 *.log
 config.json
+vault.json
