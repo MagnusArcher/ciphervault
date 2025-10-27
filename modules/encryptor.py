@@ -24,14 +24,14 @@ def encrypt_text(plaintext, key=None, cipher='AES-GCM', kdf='PBKDF2', hash_alg='
     if cipher == 'ChaCha20':
         if len(derived_key) != 32:
             derived_key = derived_key[:32]
-        nonce = secrets.token_bytes(12)
+        nonce = secrets.token_bytes(16)
         chacha = ChaCha20Poly1305(derived_key)
         ciphertext = chacha.encrypt(nonce, plaintext.encode('utf-8'), None)
         encrypted_data = salt + nonce + ciphertext
     else:
         if len(derived_key) != 32:
             derived_key = derived_key[:32]
-        nonce = secrets.token_bytes(12)
+        nonce = secrets.token_bytes(16)
         aesgcm = AESGCM(derived_key)
         ciphertext = aesgcm.encrypt(nonce, plaintext.encode('utf-8'), None)
         encrypted_data = salt + nonce + ciphertext
@@ -67,14 +67,14 @@ def encrypt_file(input_path, output_path, key=None, cipher='AES-GCM', kdf='PBKDF
     if cipher == 'ChaCha20':
         if len(derived_key) != 32:
             derived_key = derived_key[:32]
-        nonce = secrets.token_bytes(12)
+        nonce = secrets.token_bytes(16)
         chacha = ChaCha20Poly1305(derived_key)
         ciphertext = chacha.encrypt(nonce, data, None)
         encrypted_data = salt + nonce + ciphertext
     else:
         if len(derived_key) != 32:
             derived_key = derived_key[:32]
-        nonce = secrets.token_bytes(12)
+        nonce = secrets.token_bytes(16)
         aesgcm = AESGCM(derived_key)
         ciphertext = aesgcm.encrypt(nonce, data, None)
         encrypted_data = salt + nonce + ciphertext
