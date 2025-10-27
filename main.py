@@ -2,6 +2,7 @@ import sys
 import json
 import argparse
 import os
+import logging
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -15,8 +16,17 @@ from modules.password_check import check_password_strength
 from modules.encryptor import encrypt_text, encrypt_file
 from modules.decryptor import decrypt_text, decrypt_file
 from modules.clipboard_utils import copy_to_clipboard
+from modules.vault import save_password_to_vault, load_vault, vault_exists
 
 console = Console()
+
+logging.basicConfig(
+    filename='cipher.log',
+    level=logging.INFO,
+    format='[%(asctime)s] %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger("cipher")
 
 CONFIG_FILE = "config.json"
 
@@ -78,14 +88,16 @@ def show_main_menu():
     table.add_row("[5]", "Encrypt File")
     table.add_row("[6]", "Decrypt File")
     table.add_row("[7]", "Configuration")
-    table.add_row("[8]", "Exit")
+    table.add_row("[8]", "Save Password")
+    table.add_row("[9]", "View Saved Passwords")
+    table.add_row("[10]", "Exit")
     console.print(Panel(table, title="Main Menu", border_style="green", padding=(1, 2)))
 
 def get_menu_choice():
     try:
-        choice = prompt("\n➤ Select an option (1-8): ", validator=Validator.from_callable(
-            lambda x: x in ['1','2','3','4','5','6','7','8'],
-            error_message="[ERROR] Please enter 1-8."
+        choice = prompt("\n➤ Select an option (1-10): ", validator=Validator.from_callable(
+            lambda x: x in [str(i) for i in range(1, 11)],
+            error_message="[ERROR] Please enter 1-10."
         ))
         return choice
     except (KeyboardInterrupt, EOFError):
@@ -96,13 +108,26 @@ def configuration_menu():
     console.print("\n", end="")
     console.print(Panel("[bold]Configuration[/bold]", style="bold purple", border_style="purple"))
     
-    current_table = Table(box=box.ROUNDED, show_header=False)
-    current_table.add_column("Setting", style="bold cyan", width=15)
-    current_table.add_column("Value")
-    current_table.add_row("Cipher", CONFIG['cipher'])
-    current_table.add_row("KDF", CONFIG['kdf'])
-    current_table.add_row("Hash", CONFIG['hash'])
-    console.print(Panel(current_table, title="Current Settings", border_style="purple"))
+    core_table = Table(box=box.ROUNDED, show_header=False)
+    core_table.add_column("Setting", style="bold cyan", width=15)
+    core_table.add_column("Value")
+    core_table.add_row("Cipher", CONFIG['cipher'])
+    core_table.add_row("KDF", CONFIG['kdf'])
+    core_table.add_row("Hash", CONFIG['hash'])
+    console.print(Panel(core_table, title="Core Settings", border_style="cyan"))
+    
+    vault_table = Table(box=box.ROUNDED, show_header=False)
+    vault_table.add_column("Setting", style="bold magenta", width=20)
+    vault_table.add_column("Value")
+    vault_table.add_row("KDF", "Argon2id (🔒 Enforced)")
+    vault_table.add_row("Hash", "SHA-512 (🔒 Enforced)")
+    vault_table.add_row("Nonce", "16 bytes (🔒 Enforced)")
+    vault_table.add_row("Key Wrapping", "ChaCha20 (🔒 Enforced)")
+    vault_table.add_row("Auto-lock", "Immediate (🔒 Enforced)")
+    console.print(Panel(vault_table, title="Password Vault Security Policy", border_style="red"))
+    
+    console.print("[red][WARNING] Vault always uses the strongest available algorithms for maximum security.[/red]")
+    console.print("[red]These settings cannot be changed to ensure your passwords remain protected.[/red]")
     
     cipher_choice = prompt("\nCipher (1=AES-GCM, 2=ChaCha20) [1]: ", default="1")
     CONFIG['cipher'] = "ChaCha20" if cipher_choice == "2" else "AES-GCM"
@@ -110,14 +135,16 @@ def configuration_menu():
     kdf_choice = prompt("KDF (1=PBKDF2, 2=Argon2) [1]: ", default="1")
     CONFIG['kdf'] = "Argon2" if kdf_choice == "2" else "PBKDF2"
     
-    hash_choice = prompt("Hash (1=SHA256, 2=SHA512) [1]: ", default="1")
-    CONFIG['hash'] = "SHA512" if hash_choice == "2" else "SHA256"
+    if CONFIG['kdf'] == "PBKDF2":
+        hash_choice = prompt("Hash (1=SHA256, 2=SHA512) [1]: ", default="1")
+        CONFIG['hash'] = "SHA512" if hash_choice == "2" else "SHA256"
     
     save_config(CONFIG)
+    logger.info("Configuration updated")
     console.print("[SUCCESS] Configuration updated!")
     prompt("\n➤ Press Enter to return...")
 
-def generate_password_flow(json_output=False):
+def generate_password_flow():
     console.print("\n", end="")
     console.print(Panel("[bold]Password Generator[/bold]", style="bold green", border_style="green"))
 
@@ -144,14 +171,6 @@ def generate_password_flow(json_output=False):
         password = generate_password(length, use_lower, use_upper, use_digits, use_symbols)
         strength = check_password_strength(password)
 
-        if json_output:
-            result = {
-                'password': password,
-                'strength': strength
-            }
-            print(json.dumps(result, indent=2))
-            return
-
         result_table = Table(box=box.ROUNDED, show_header=False)
         result_table.add_column("Property", style="bold cyan", width=20)
         result_table.add_column("Value")
@@ -168,30 +187,29 @@ def generate_password_flow(json_output=False):
         if prompt("\n➤ Copy password to clipboard? (y/n): ").lower().startswith('y'):
             if copy_to_clipboard(password):
                 console.print("[SUCCESS] Password copied to clipboard!")
+                logger.info("Password copied to clipboard")
             else:
-                console.print("[ERROR] Failed to copy to clipboard.")
+                console.print("[yellow][WARNING] Clipboard failed. Copy manually:[/yellow]")
+                console.print(f"[bold white on blue]{password}[/bold white on blue]")
+                logger.info("Clipboard failed")
 
         if strength['suggestions']:
             console.print("\n[bold yellow]Suggestions for Improvement:[/bold yellow]")
             for s in strength['suggestions']:
                 console.print(f"  • {s}")
+        
+        logger.info(f"Password generated (length={length})")
 
     except Exception as e:
-        if json_output:
-            print(json.dumps({'error': str(e)}, indent=2))
-        else:
-            console.print(f"[ERROR] {str(e)}")
+        console.print(f"[ERROR] {str(e)}")
+        logger.error(f"Password generation failed: {str(e)}")
 
-def check_password_flow(json_output=False):
+def check_password_flow():
     console.print("\n", end="")
     console.print(Panel("[bold]Password Strength Checker[/bold]", style="bold yellow", border_style="yellow"))
     try:
         password = prompt("Enter password to check: ", is_password=False, validator=NonEmptyValidator())
         result = check_password_strength(password)
-
-        if json_output:
-            print(json.dumps(result, indent=2))
-            return
 
         strength_colors = {"Weak": "red", "Medium": "yellow", "Strong": "green", "Very Strong": "bright_green"}
         color = strength_colors.get(result['level'], "white")
@@ -214,16 +232,16 @@ def check_password_flow(json_output=False):
             console.print("\n[bold yellow]Suggestions:[/bold yellow]")
             for s in result['suggestions']:
                 console.print(f"  • {s}")
+        
+        logger.info(f"Password checked (length={result['length']}, strength={result['level']})")
 
     except (KeyboardInterrupt, EOFError):
         return
     except Exception as e:
-        if json_output:
-            print(json.dumps({'error': str(e)}, indent=2))
-        else:
-            console.print(f"[ERROR] {str(e)}")
+        console.print(f"[ERROR] {str(e)}")
+        logger.error(f"Password check failed: {str(e)}")
 
-def encrypt_text_flow(json_output=False):
+def encrypt_text_flow():
     console.print("\n", end="")
     console.print(Panel("[bold]Text Encryption[/bold]", style="bold magenta", border_style="magenta"))
     try:
@@ -238,10 +256,6 @@ def encrypt_text_flow(json_output=False):
             ))
 
         result = encrypt_text(plaintext, key, cipher=CONFIG['cipher'], kdf=CONFIG['kdf'], hash_alg=CONFIG['hash'])
-
-        if json_output:
-            print(json.dumps(result, indent=2))
-            return
 
         result_table = Table(box=box.ROUNDED, show_header=False)
         result_table.add_column("Item", style="bold cyan", width=20)
@@ -259,24 +273,30 @@ def encrypt_text_flow(json_output=False):
         if prompt("\n➤ Copy key to clipboard? (y/n): ").lower().startswith('y'):
             if copy_to_clipboard(result['key']):
                 console.print("[SUCCESS] Key copied to clipboard!")
+                logger.info("Encryption key copied to clipboard")
             else:
-                console.print("[ERROR] Failed to copy key.")
+                console.print("[yellow][WARNING] Clipboard failed. Copy manually:[/yellow]")
+                console.print(f"[bold yellow on black]{result['key']}[/bold yellow on black]")
+                logger.info("Clipboard failed for key")
 
         if prompt("➤ Copy encrypted text to clipboard? (y/n): ").lower().startswith('y'):
             if copy_to_clipboard(result['encrypted']):
                 console.print("[SUCCESS] Encrypted text copied to clipboard!")
+                logger.info("Encrypted text copied to clipboard")
             else:
-                console.print("[ERROR] Failed to copy encrypted text.")
+                console.print("[yellow][WARNING] Clipboard failed. Copy manually:[/yellow]")
+                console.print(f"[dim]{result['encrypted']}[/dim]")
+                logger.info("Clipboard failed for encrypted text")
+        
+        logger.info(f"Text encrypted (cipher={result['cipher']}, kdf={result['kdf']})")
 
     except (KeyboardInterrupt, EOFError):
         return
     except Exception as e:
-        if json_output:
-            print(json.dumps({'error': str(e)}, indent=2))
-        else:
-            console.print(f"[ERROR] {str(e)}")
+        console.print(f"[ERROR] {str(e)}")
+        logger.error(f"Text encryption failed: {str(e)}")
 
-def decrypt_text_flow(json_output=False):
+def decrypt_text_flow():
     console.print("\n", end="")
     console.print(Panel("[bold]Text Decryption[/bold]", style="bold blue", border_style="blue"))
     try:
@@ -284,10 +304,6 @@ def decrypt_text_flow(json_output=False):
         key = prompt("Enter decryption key: ", is_password=False, validator=NonEmptyValidator())
 
         result = decrypt_text(encrypted, key, cipher=CONFIG['cipher'], kdf=CONFIG['kdf'], hash_alg=CONFIG['hash'])
-
-        if json_output:
-            print(json.dumps(result, indent=2))
-            return
 
         if result['success']:
             result_table = Table(box=box.ROUNDED, show_header=False)
@@ -297,20 +313,23 @@ def decrypt_text_flow(json_output=False):
             if prompt("\n➤ Copy decrypted text to clipboard? (y/n): ").lower().startswith('y'):
                 if copy_to_clipboard(result['decrypted']):
                     console.print("[SUCCESS] Decrypted text copied to clipboard!")
+                    logger.info("Decrypted text copied to clipboard")
                 else:
-                    console.print("[ERROR] Failed to copy decrypted text.")
+                    console.print("[yellow][WARNING] Clipboard failed. Copy manually:[/yellow]")
+                    console.print(f"[bold white on blue]{result['decrypted']}[/bold white on blue]")
+                    logger.info("Clipboard failed for decrypted text")
+            logger.info("Text decrypted successfully")
         else:
             console.print(f"[ERROR] Decryption Failed: {result['error']}")
+            logger.error(f"Text decryption failed: {result['error']}")
 
     except (KeyboardInterrupt, EOFError):
         return
     except Exception as e:
-        if json_output:
-            print(json.dumps({'error': str(e)}, indent=2))
-        else:
-            console.print(f"[ERROR] {str(e)}")
+        console.print(f"[ERROR] {str(e)}")
+        logger.error(f"Text decryption failed: {str(e)}")
 
-def encrypt_file_flow(json_output=False):
+def encrypt_file_flow():
     console.print("\n", end="")
     console.print(Panel("[bold]File Encryption[/bold]", style="bold magenta", border_style="magenta"))
     try:
@@ -326,10 +345,6 @@ def encrypt_file_flow(json_output=False):
             ))
 
         result = encrypt_file(input_path, output_path, key, cipher=CONFIG['cipher'], kdf=CONFIG['kdf'], hash_alg=CONFIG['hash'])
-
-        if json_output:
-            print(json.dumps(result, indent=2))
-            return
 
         result_table = Table(box=box.ROUNDED, show_header=False)
         result_table.add_column("Item", style="bold cyan", width=20)
@@ -347,18 +362,21 @@ def encrypt_file_flow(json_output=False):
         if prompt("\n➤ Copy key to clipboard? (y/n): ").lower().startswith('y'):
             if copy_to_clipboard(result['key']):
                 console.print("[SUCCESS] Key copied to clipboard!")
+                logger.info("File encryption key copied to clipboard")
             else:
-                console.print("[ERROR] Failed to copy key.")
+                console.print("[yellow][WARNING] Clipboard failed. Copy manually:[/yellow]")
+                console.print(f"[bold yellow on black]{result['key']}[/bold yellow on black]")
+                logger.info("Clipboard failed for file key")
+        
+        logger.info(f"File encrypted (input={input_path}, output={output_path})")
 
     except (KeyboardInterrupt, EOFError):
         return
     except Exception as e:
-        if json_output:
-            print(json.dumps({'error': str(e)}, indent=2))
-        else:
-            console.print(f"[ERROR] {str(e)}")
+        console.print(f"[ERROR] {str(e)}")
+        logger.error(f"File encryption failed: {str(e)}")
 
-def decrypt_file_flow(json_output=False):
+def decrypt_file_flow():
     console.print("\n", end="")
     console.print(Panel("[bold]File Decryption[/bold]", style="bold blue", border_style="blue"))
     try:
@@ -368,23 +386,85 @@ def decrypt_file_flow(json_output=False):
 
         result = decrypt_file(input_path, output_path, key, cipher=CONFIG['cipher'], kdf=CONFIG['kdf'], hash_alg=CONFIG['hash'])
 
-        if json_output:
-            print(json.dumps(result, indent=2))
-            return
-
         if result['success']:
             console.print("[SUCCESS] File decrypted successfully!")
             console.print(f"Output saved to: [bold]{output_path}[/bold]")
+            logger.info(f"File decrypted (input={input_path}, output={output_path})")
         else:
             console.print(f"[ERROR] Decryption Failed: {result['error']}")
+            logger.error(f"File decryption failed: {result['error']}")
 
-    except (KeyboardInterruptedException, EOFError):
+    except (KeyboardInterrupt, EOFError):
         return
     except Exception as e:
-        if json_output:
-            print(json.dumps({'error': str(e)}, indent=2))
+        console.print(f"[ERROR] {str(e)}")
+        logger.error(f"File decryption failed: {str(e)}")
+
+def save_password_flow():
+    console.print("\n", end="")
+    console.print(Panel("[bold]Save Password to Vault[/bold]", style="bold green", border_style="green"))
+    try:
+        password = prompt("Enter password to save: ", validator=NonEmptyValidator())
+        name = prompt("Enter a name for this password (e.g., Gmail): ", validator=NonEmptyValidator())
+        
+        master_password = prompt("Enter your Master Password (min 8 chars): ", is_password=True, validator=Validator.from_callable(
+            lambda x: len(x) >= 8,
+            error_message="[ERROR] Master Password must be at least 8 characters."
+        ))
+        
+        if save_password_to_vault(master_password, name, password):
+            console.print("[SUCCESS] Password saved to vault!")
         else:
-            console.print(f"[ERROR] {str(e)}")
+            console.print("[ERROR] Failed to save password to vault.")
+        
+        logger.info(f"Password saved to vault: {name}")
+        
+    except (KeyboardInterrupt, EOFError):
+        return
+    except Exception as e:
+        console.print(f"[ERROR] {str(e)}")
+        logger.error(f"Save password to vault failed: {str(e)}")
+
+def view_vault_flow():
+    console.print("\n", end="")
+    console.print(Panel("[bold]Saved Passwords[/bold]", style="bold yellow", border_style="yellow"))
+    try:
+        if not vault_exists():
+            console.print("[INFO] No passwords saved yet.")
+            return
+        
+        master_password = prompt("Enter your Master Password: ", is_password=True, validator=NonEmptyValidator())
+        entries = load_vault(master_password)
+        
+        if not entries:
+            console.print("[ERROR] Failed to load vault. Incorrect Master Password?")
+            return
+        
+        if not entries:
+            console.print("[INFO] Vault is empty.")
+            return
+        
+        for i, entry in enumerate(entries, 1):
+            console.print(f"\n[bold]{i}. {entry['name']}[/bold]")
+            console.print(f"   Password: [bold white on blue]{entry['password']}[/bold white on blue]")
+            console.print(f"   Created: {entry['created_at']}")
+            
+            if prompt(f"\n➤ Copy password for '{entry['name']}' to clipboard? (y/n): ").lower().startswith('y'):
+                if copy_to_clipboard(entry['password']):
+                    console.print("[SUCCESS] Password copied to clipboard!")
+                    logger.info(f"Vault password copied: {entry['name']}")
+                else:
+                    console.print("[yellow][WARNING] Clipboard failed. Copy manually:[/yellow]")
+                    console.print(f"[bold white on blue]{entry['password']}[/bold white on blue]")
+                    logger.info("Clipboard failed for vault password")
+        
+        logger.info("Vault viewed successfully")
+        
+    except (KeyboardInterrupt, EOFError):
+        return
+    except Exception as e:
+        console.print(f"[ERROR] {str(e)}")
+        logger.error(f"View vault failed: {str(e)}")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="CipherVault: Secure Text & Password Toolkit")
@@ -429,22 +509,99 @@ def main():
     
     if args.command:
         if args.command == 'generate':
-            # Non-interactive mode uses defaults unless overridden
             use_lower = not args.no_lower
             use_upper = not args.no_upper
             use_digits = not args.no_digits
             use_symbols = not args.no_symbols
-            generate_password_flow(json_output=args.json)
+            try:
+                password = generate_password(args.length, use_lower, use_upper, use_digits, use_symbols)
+                if args.json:
+                    print(json.dumps({'password': password, 'strength': check_password_strength(password)}, indent=2))
+                else:
+                    print(password)
+                logger.info(f"Password generated via CLI (length={args.length})")
+            except Exception as e:
+                if args.json:
+                    print(json.dumps({'error': str(e)}, indent=2))
+                else:
+                    print(f"[ERROR] {str(e)}")
+                logger.error(f"CLI password generation failed: {str(e)}")
         elif args.command == 'check':
-            check_password_flow(password=args.password, json_output=args.json)
+            try:
+                result = check_password_strength(args.password)
+                if args.json:
+                    print(json.dumps(result, indent=2))
+                else:
+                    print(f"Strength: {result['level']}")
+                logger.info(f"Password checked via CLI (length={len(args.password)})")
+            except Exception as e:
+                if args.json:
+                    print(json.dumps({'error': str(e)}, indent=2))
+                else:
+                    print(f"[ERROR] {str(e)}")
+                logger.error(f"CLI password check failed: {str(e)}")
         elif args.command == 'encrypt':
-            encrypt_text_flow(plaintext=args.text, key=args.key, use_random=args.random_key, json_output=args.json)
+            try:
+                result = encrypt_text(args.text, args.key, use_random=args.random_key)
+                if args.json:
+                    print(json.dumps(result, indent=2))
+                else:
+                    print(result['encrypted'])
+                logger.info(f"Text encrypted via CLI (cipher={result['cipher']})")
+            except Exception as e:
+                if args.json:
+                    print(json.dumps({'error': str(e)}, indent=2))
+                else:
+                    print(f"[ERROR] {str(e)}")
+                logger.error(f"CLI text encryption failed: {str(e)}")
         elif args.command == 'decrypt':
-            decrypt_text_flow(encrypted=args.encrypted, key=args.key, json_output=args.json)
+            try:
+                result = decrypt_text(args.encrypted, args.key)
+                if args.json:
+                    print(json.dumps(result, indent=2))
+                else:
+                    if result['success']:
+                        print(result['decrypted'])
+                    else:
+                        print(f"[ERROR] {result['error']}")
+                logger.info("Text decrypted via CLI")
+            except Exception as e:
+                if args.json:
+                    print(json.dumps({'error': str(e)}, indent=2))
+                else:
+                    print(f"[ERROR] {str(e)}")
+                logger.error(f"CLI text decryption failed: {str(e)}")
         elif args.command == 'encrypt-file':
-            encrypt_file_flow(input_path=args.input, output_path=args.output, key=args.key, use_random=args.random_key, json_output=args.json)
+            try:
+                result = encrypt_file(args.input, args.output, args.key, use_random=args.random_key)
+                if args.json:
+                    print(json.dumps(result, indent=2))
+                else:
+                    print("File encrypted successfully")
+                logger.info(f"File encrypted via CLI (input={args.input})")
+            except Exception as e:
+                if args.json:
+                    print(json.dumps({'error': str(e)}, indent=2))
+                else:
+                    print(f"[ERROR] {str(e)}")
+                logger.error(f"CLI file encryption failed: {str(e)}")
         elif args.command == 'decrypt-file':
-            decrypt_file_flow(input_path=args.input, output_path=args.output, key=args.key, json_output=args.json)
+            try:
+                result = decrypt_file(args.input, args.output, args.key)
+                if args.json:
+                    print(json.dumps(result, indent=2))
+                else:
+                    if result['success']:
+                        print("File decrypted successfully")
+                    else:
+                        print(f"[ERROR] {result['error']}")
+                logger.info("File decrypted via CLI")
+            except Exception as e:
+                if args.json:
+                    print(json.dumps({'error': str(e)}, indent=2))
+                else:
+                    print(f"[ERROR] {str(e)}")
+                logger.error(f"CLI file decryption failed: {str(e)}")
         return
     
     while True:
@@ -468,7 +625,12 @@ def main():
         elif choice == '7':
             configuration_menu()
         elif choice == '8':
+            save_password_flow()
+        elif choice == '9':
+            view_vault_flow()
+        elif choice == '10':
             console.print("[bold cyan]Goodbye! Stay secure![/bold cyan]")
+            logger.info("Application exited")
             break
 
         try:
