@@ -4,14 +4,13 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM, ChaCha20Poly1305
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
 
 def decrypt_text(encrypted_base64, key, cipher='AES-GCM', kdf='PBKDF2', hash_alg='SHA256'):
     try:
         encrypted_data = base64.b64decode(encrypted_base64)
         salt = encrypted_data[:16]
-        nonce = encrypted_data[16:28]
-        ciphertext = encrypted_data[28:]
+        nonce = encrypted_data[16:32]
+        ciphertext = encrypted_data[32:]
         
         if kdf == 'Argon2':
             derived_key = _derive_key_argon2(key, salt, cipher)
@@ -50,8 +49,8 @@ def decrypt_file(input_path, output_path, key, cipher='AES-GCM', kdf='PBKDF2', h
         encrypted_data = f.read()
     
     salt = encrypted_data[:16]
-    nonce = encrypted_data[16:28]
-    ciphertext = encrypted_data[28:]
+    nonce = encrypted_data[16:32]
+    ciphertext = encrypted_data[32:]
     
     try:
         if kdf == 'Argon2':
